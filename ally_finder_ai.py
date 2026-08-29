@@ -91,6 +91,19 @@ def score_partner(row: pd.Series) -> pd.Series:
 
 
 # --- Outreach message generator --------------------------------------------
+def build_rationale(notes: str) -> str:
+    """
+    Turn internal Partnership Notes into a natural-sounding reason for the
+    email -- never insert raw internal notes (like "discovered through web
+    search") directly into a message meant for the company.
+    """
+    text = str(notes).lower()
+    matched = [k for k in POSITIVE_INTENT_KEYWORDS if k in text]
+    if matched:
+        return f"Given your team's interest in {matched[0]} partnerships, "
+    return "Given the overlap between our audiences, "
+
+
 def generate_template_message(row: pd.Series) -> str:
     name = row["Company Name"]
     industry = row["Industry"]
@@ -99,15 +112,16 @@ def generate_template_message(row: pd.Series) -> str:
     website = row.get("Website", "")
 
     website_line = f"\nI came across {name} at {website}. " if website else "\n"
+    rationale = build_rationale(notes)
 
     return f"""Subject: Exploring a Partnership Between Our Teams and {name}
 
 Hi {name} team,{website_line}
 I hope you're doing well. I've been following the work {name} is doing in the
-{industry} space, particularly around {audience.lower() if audience else "your audience"},
+{industry} space, particularly around {audience.lower() if audience and audience != "Unknown" else "your audience"},
 and I think there could be a strong opportunity for our organizations to collaborate.
 
-Given that {notes.lower()}, I believe a partnership focused on shared
+{rationale}I believe a partnership focused on shared
 audience growth, co-branded content, or referral opportunities could be
 mutually beneficial for both teams.
 
@@ -450,9 +464,9 @@ def add_partner_row(name, industry, audience, size, notes, campaign="General Out
 # ============================================================================
 # APP
 # ============================================================================
-st.set_page_config(page_title="AI-Powered Partner Outreach Automation", layout="wide")
+st.set_page_config(page_title="Ally Finder AI", layout="wide")
 
-st.title("🤝 AI-Powered Partner Outreach Automation")
+st.title("🤝 Ally Finder AI")
 st.caption("Discover, score, rank, and reach out to potential partners.")
 
 # --- AI Partner Discovery (new) --------------------------------------------
