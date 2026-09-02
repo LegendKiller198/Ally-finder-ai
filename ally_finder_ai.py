@@ -13,7 +13,6 @@ Two separate scores exist in this app:
 
 import os
 import re
-import json
 import pandas as pd
 import streamlit as st
 
@@ -160,40 +159,6 @@ def generate_ai_message(row: pd.Series) -> str:
         return base_message
 
 
-# --- Legacy AI-powered discovery (Anthropic, optional) ----------------------
-def discover_partners_ai(niche: str):
-    """
-    Ask Claude (with web search) to suggest a few real companies in a given
-    niche. Kept for backward compatibility -- the newer Tavily-based
-    discovery section above is the main discovery workflow now.
-    """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        return None, "No API key configured. Add partners manually using the form below instead."
-    try:
-        import anthropic
-        client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1000,
-            tools=[{"type": "web_search_20250305", "name": "web_search"}],
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Find 3 real companies in the '{niche}' space that could be a good "
-                    "partnership fit for an EdTech / exam-prep platform. Respond with ONLY "
-                    "a JSON array (no extra text), in this exact format:\n"
-                    '[{"Company Name": "...", "Industry": "...", "Target Audience": "...", '
-                    '"Company Size": "Small or Medium or Large", "Partnership Notes": "..."}]'
-                )
-            }]
-        )
-        text = "".join(b.text for b in response.content if getattr(b, "type", None) == "text")
-        text = text.strip().replace("```json", "").replace("```", "").strip()
-        suggestions = json.loads(text)
-        return suggestions, None
-    except Exception:
-        return None, "AI search didn't return usable results. Try again or add manually below."
 
 
 # ============================================================================
@@ -471,10 +436,7 @@ st.caption("Discover, score, rank, and reach out to potential partners.")
 
 # --- AI Partner Discovery (new) --------------------------------------------
 st.subheader("🔎 AI Partner Discovery")
-st.caption(
-    "Search the web for real companies matching what you're looking for. "
-    "Uses free web search (Tavily) -- nothing is added automatically, you review and approve."
-)
+st.caption("Search the web for real companies. You review and approve before anything is added.")
 
 with st.expander("Discovery settings", expanded=True):
     d_description = st.text_area(
@@ -629,54 +591,23 @@ with st.expander("ℹ️ How is the Partner Score calculated?"):
     )
 
 # --- Add / Discover Partners (manual + legacy AI tab) -----------------------
-st.subheader("➕ Add Partners Manually")
-tab_manual, tab_ai_legacy = st.tabs(["✍️ Add Manually", "🔎 Discover with AI (legacy)"])
-
-with tab_manual:
-    with st.form("add_partner_form", clear_on_submit=True):
-        c1, c2 = st.columns(2)
-        name = c1.text_input("Company Name")
-        industry = c2.text_input("Industry")
-        audience = st.text_input("Target Audience")
-        size = st.selectbox("Company Size", ["Small", "Medium", "Large"])
-        notes = st.text_area("Partnership Notes")
-        campaign = st.text_input("Campaign", value="General Outreach")
-        submitted = st.form_submit_button("Add Partner")
-        if submitted:
-            if name.strip() and industry.strip():
-                add_partner_row(name, industry, audience, size, notes, campaign)
-                st.success(f"Added {name}")
-                st.rerun()
-            else:
-                st.warning("Company Name and Industry are required.")
-
-with tab_ai_legacy:
-    st.caption("Older single-company AI search. The section above is the main discovery workflow now.")
-    niche = st.text_input("Industry or niche to search", placeholder="e.g. online coding bootcamps")
-    if st.button("Find Potential Partners (legacy)"):
-        if not niche.strip():
-            st.warning("Enter a niche to search first.")
+st.subheader("➕ Add Partner Manually")
+with st.form("add_partner_form", clear_on_submit=True):
+    c1, c2 = st.columns(2)
+    name = c1.text_input("Company Name")
+    industry = c2.text_input("Industry")
+    audience = st.text_input("Target Audience")
+    size = st.selectbox("Company Size", ["Small", "Medium", "Large"])
+    notes = st.text_area("Partnership Notes")
+    campaign = st.text_input("Campaign", value="General Outreach")
+    submitted = st.form_submit_button("Add Partner")
+    if submitted:
+        if name.strip() and industry.strip():
+            add_partner_row(name, industry, audience, size, notes, campaign)
+            st.success(f"Added {name}")
+            st.rerun()
         else:
-            with st.spinner("Searching..."):
-                suggestions, error = discover_partners_ai(niche)
-            if error:
-                st.info(error)
-            else:
-                st.session_state["ai_suggestions"] = suggestions
-
-    if "ai_suggestions" in st.session_state:
-        for i, s in enumerate(st.session_state["ai_suggestions"]):
-            with st.container(border=True):
-                st.markdown(f"**{s.get('Company Name', 'Unknown')}** — {s.get('Industry', '')}")
-                st.caption(s.get("Target Audience", ""))
-                if st.button("Add to Partner List", key=f"add_ai_{i}"):
-                    add_partner_row(
-                        s.get("Company Name", "Unknown"), s.get("Industry", ""),
-                        s.get("Target Audience", ""), s.get("Company Size", "Medium"),
-                        s.get("Partnership Notes", "")
-                    )
-                    st.success(f"Added {s.get('Company Name')}")
-                    st.rerun()
+            st.warning("Company Name and Industry are required.")
 
 # --- Outreach generator ---------------------------------------------------
 st.subheader("✉️ Outreach Message Generator")
