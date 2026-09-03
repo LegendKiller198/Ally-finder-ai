@@ -19,6 +19,9 @@ import streamlit as st
 DATA_FILE = "partners.csv"
 
 # --- Scoring config (this is "our company's" ideal partner profile) --------
+# These stay narrow on purpose -- they define what's a good PARTNER FIT for
+# our specific (EdTech) company. Broadening these would make Partner Score
+# meaningless, since its whole point is measuring fit with OUR business.
 HIGH_RELEVANCE_INDUSTRIES = ["EdTech", "EdTech / Data Science", "FinTech Education"]
 MEDIUM_RELEVANCE_INDUSTRIES = ["Professional Services", "Media & Entertainment", "IT Services"]
 
@@ -184,7 +187,48 @@ INDUSTRY_KEYWORDS = {
     "IT Services": ["software company", "it services", "cloud services", "saas", "technology solutions"],
     "Professional Services": ["career services", "consulting", "recruitment", "placement", "coaching institute"],
     "Media & Entertainment": ["media company", "content platform", "entertainment", "creator economy"],
+    # Broader categories -- these let discovery correctly recognize ANY
+    # real business, not just ones close to our own EdTech niche. This does
+    # NOT change Partner Score (which stays selective for EdTech fit) --
+    # it only improves how well Discovery Score recognizes real companies.
+    "Retail": ["retail", "retailer", "e-commerce", "online store", "shopping"],
+    "Healthcare": ["healthcare", "hospital", "clinic", "medical", "health services", "pharmacy"],
+    "Fashion & Apparel": ["fashion", "clothing", "apparel", "fashion brand", "footwear"],
+    "Consumer Goods": ["consumer goods", "fmcg", "household products", "packaged goods"],
+    "Food & Beverage": ["food", "beverage", "restaurant", "cafe", "food delivery", "catering"],
+    "Travel & Hospitality": ["travel", "hotel", "hospitality", "tourism", "airline", "resort"],
+    "Real Estate": ["real estate", "property", "realty", "housing"],
+    "Finance & Banking": ["bank", "banking", "financial services", "insurance", "investment firm"],
+    "Automotive": ["automotive", "car dealership", "vehicle", "auto parts"],
+    "Manufacturing": ["manufacturing", "manufacturer", "factory", "industrial"],
+    "Non-Profit": ["non-profit", "nonprofit", "ngo", "charity", "foundation"],
+    "Legal Services": ["law firm", "legal services", "attorney", "lawyer"],
+    "Construction": ["construction", "contractor", "building services", "architecture"],
+    "Telecom": ["telecom", "telecommunications", "mobile network", "internet service"],
+    "Logistics": ["logistics", "shipping", "supply chain", "delivery service", "freight"],
+    "Agriculture": ["agriculture", "farming", "agritech", "agribusiness"],
+    "Beauty & Wellness": ["beauty", "skincare", "wellness", "spa", "cosmetics", "salon"],
+    "Sports & Fitness": ["fitness", "gym", "sports", "athletic", "wellness studio"],
+    "Toys & Kids Products": ["toys", "baby products", "children's products", "kids brand", "childcare"],
+    "Consumer Electronics": ["electronics", "gadgets", "consumer tech", "devices"],
+    "Home & Furniture": ["furniture", "home decor", "home goods", "interior design"],
 }
+
+# Broader audience vocabulary used ONLY when reading discovery search results
+# -- lets the app recognize any real audience (not just students/professionals).
+# Partner Score's AUDIENCE_KEYWORDS above stays narrow on purpose; this list
+# is separate and only affects how Discovery Score reads web content.
+DISCOVERY_AUDIENCE_KEYWORDS = AUDIENCE_KEYWORDS + [
+    "consumers", "customers", "shoppers", "buyers", "clients", "users",
+    "toddler", "toddlers", "infant", "infants", "children", "kids", "teen", "teens", "teenager",
+    "parent", "parents", "family", "families", "household", "households",
+    "senior", "seniors", "elderly", "adult", "adults", "millennial", "millennials", "gen z",
+    "men", "women", "homeowner", "homeowners", "renter", "renters", "traveler", "travelers",
+    "patient", "patients", "investor", "investors", "entrepreneur", "entrepreneurs",
+    "small business", "startup", "startups", "enterprise", "enterprises", "business owner",
+    "employee", "employees", "team", "teams", "athlete", "athletes", "gamer", "gamers",
+    "pet owner", "pet owners",
+]
 
 
 def generate_search_queries(description: str, market: str, audience: str, partnership_type: str, max_queries: int = 5) -> list:
@@ -291,7 +335,7 @@ def extract_company_candidates(raw_results: list) -> list:
 
         industry = guess_industry(combined_text)
 
-        matched_audience = sorted(set(k for k in AUDIENCE_KEYWORDS if k in content.lower()))
+        matched_audience = sorted(set(k for k in DISCOVERY_AUDIENCE_KEYWORDS if k in content.lower()))
         audience = ", ".join(matched_audience) if matched_audience else "Unknown"
 
         matched_intent = sorted(set(k for k in POSITIVE_INTENT_KEYWORDS if k in content.lower()))
@@ -329,15 +373,36 @@ def calculate_discovery_score(candidate: dict, market: str, audience_input: str,
     Score 0-100 for how well a candidate matches the SEARCH request.
     This is separate from Partner Score -- it measures search relevance,
     not partnership fit with our specific company.
-    """
-    industry_pts = 30 if candidate["industry"] != "Unknown" else 8
 
-    audience_pts = 10
+    Industry and Audience each have a fallback: if the fixed keyword lists
+    don't recognize a category (e.g. an industry or audience we didn't
+    anticipate), the score falls back to checking general word overlap
+    between what the user typed and the company's actual content -- the
+    same technique used for Search Relevance. This means the score stays
+    fair and free (no paid API) even for topics outside the built-in lists.
+    """
+    full_text = (candidate.get("company_name", "") + " " + candidate["description"]).lower()
+
+    if candidate["industry"] != "Unknown":
+        industry_pts = 30  # matched one of the known industry categories
+    else:
+        # Fallback: does the user's own description overlap with this
+        # company's content? Give partial credit if so, rather than a flat low score.
+        desc_terms = set(w.lower().strip(",.") for w in description.split() if len(w) > 3)
+        overlap = desc_terms & set(full_text.split())
+        industry_pts = min(8 + len(overlap) * 4, 25) if overlap else 8
+
     if candidate["target_audience"] != "Unknown":
         cand_kw = set(candidate["target_audience"].lower().split(", "))
         input_kw = set(w.strip(",.") for w in audience_input.lower().split())
         overlap = cand_kw & input_kw
         audience_pts = min(len(overlap) * 10, 25) if overlap else 12
+    else:
+        # Fallback: check if the user's own audience words appear anywhere
+        # in the company's content directly, not just our fixed keyword list.
+        input_kw = set(w.lower().strip(",.") for w in audience_input.split() if len(w) > 2)
+        overlap = input_kw & set(full_text.split())
+        audience_pts = min(8 + len(overlap) * 6, 22) if overlap else 8
 
     market_text = (candidate["description"] + " " + candidate["source_url"]).lower()
     market_pts = 15 if market and market.lower() in market_text else 5
