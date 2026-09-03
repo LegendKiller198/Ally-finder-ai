@@ -390,7 +390,37 @@ st.markdown("""
 div.stButton > button[kind="primary"] { background:linear-gradient(90deg,#6d28d9,#4f46e5); border:0; color:white; font-weight:700; border-radius:10px; min-height:2.65rem; }
 div.stButton > button { border-radius:10px; font-weight:600; }
 [data-testid="stMetric"] { background:white; border:1px solid #e8eaf2; padding:1rem; border-radius:16px; box-shadow:0 5px 18px rgba(15,23,42,.035); }
-.stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] > div { border-radius:10px; }
+.stTextInput input,
+.stTextArea textarea,
+div[data-testid="stTextInput"] input,
+div[data-testid="stTextArea"] textarea,
+div[data-baseweb="input"] input,
+div[data-baseweb="textarea"] textarea {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    -webkit-text-fill-color: #111827 !important;
+    caret-color: #111827 !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+}
+div[data-testid="stTextInput"] input::placeholder,
+div[data-testid="stTextArea"] textarea::placeholder,
+div[data-baseweb="input"] input::placeholder,
+div[data-baseweb="textarea"] textarea::placeholder {
+    color: #64748b !important;
+    -webkit-text-fill-color: #64748b !important;
+    opacity: 1 !important;
+}
+div[data-testid="stTextInput"] label,
+div[data-testid="stTextArea"] label {
+    color: #334155 !important;
+    opacity: 1 !important;
+}
+.stSelectbox div[data-baseweb="select"] > div {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    border-radius: 10px !important;
+}
 hr { border-color:#e9eaf1; }
 </style>
 """, unsafe_allow_html=True)
