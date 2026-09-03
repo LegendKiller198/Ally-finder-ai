@@ -1,6 +1,5 @@
 [theme]
-primaryColor = "#5FA8A0"
-backgroundColor = "#111418"
-secondaryBackgroundColor = "#1B2226"
-textColor = "#E8EAED"
-font = "sans serif"
+primaryColor = "#7C3AED"               # Purple accent for buttons/sliders
+backgroundColor = "#F9FAFB"            # Light off-white background
+secondaryBackgroundColor = "#FFFFFF"   # Pure white for cards/sidebar
+textColor = "#111827"                  # Dark charcoal/black for sharp text
